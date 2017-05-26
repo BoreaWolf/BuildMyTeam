@@ -22,7 +22,8 @@ FILE_QUERY = "./Query.try"
 URL_SITE = "https://www.opendota.com/matches/"
 URL_API = "https://api.opendota.com/api/"
 URL_MATCHES = "#{URL_API}matches/"
-URL_QUERY = "#{URL_API}explorer?sql="
+URL_EXPLORER = "explorer?sql="
+URL_QUERY = "#{URL_API}#{URL_EXPLORER}"
 SCRIPT_BUILD = "/build/641f6f1bb5fb15bb60f5.bundle.js"
 
 # Constants used for cute printing

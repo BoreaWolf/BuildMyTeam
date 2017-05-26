@@ -7,17 +7,25 @@
 
 require 'json'
 require 'net/http'
-require 'nokogiri'
 require 'time'
-require 'uri'
 
 require './Statseroo.rb'
 
-#	IterativeMean = Struct.new( :value, :samples )
-
 # Open a url stream
-def open( url )
-	Net::HTTP.get( URI.parse( url ) )
+def open( url_base, url_spec )
+	# Getting info about the connection to open
+	uri_base = URI( url_base )
+	proxy = URI( ENV["https_proxy"] )
+	# Opening a connection considering a proxy
+	# Need to try this without a proxied connection
+	# I always use SSL since the website that I am querying uses it
+	Net::HTTP.start( uri_base.host, uri_base.port,
+					 proxy.host, proxy.port,
+					 :use_ssl => true ){ |http|
+		# Getting the information of what is requested, combining the base url
+		# with the specific data required
+		http.get( "#{uri_base.path}#{url_spec}" ).body
+	}
 end
 
 def is_useful?( match_data )
@@ -52,8 +60,8 @@ def get_matches_to_parse( last_match_time )
 	query.concat( "WHERE start_time > " )
 	query.concat( last_match_time.to_s )
 	query.concat( " ORDER BY start_time ASC" )
-	
-	query_result = JSON.parse( open( "#{URL_QUERY}#{URI.escape( query )}" ) )
+
+	query_result = JSON.parse( open( URL_API, "#{URL_EXPLORER}#{URI.escape( query )}" ) )
 
 	return( query_result["rows"].collect{ |i| i["match_id"] } )
 end
@@ -79,7 +87,7 @@ def update_from( date_time, stats )
 	#	last_delta_time = DELTA_TIME + 1
 	matches_to_parse.each.with_index do |match, i|
 		# Reading data from the website
-		data = JSON.parse( open( "#{URL_MATCHES}#{match}" ) )
+		data = JSON.parse( open( URL_MATCHES, match ) )
 
 		# Nice printing
 		printf( "%#{num_digits(matches_to_parse.length)}d/%d) ",
@@ -304,17 +312,8 @@ statseroo = Statseroo.new
 case ARGV[ 0 ]
 # Creating a new empty Statseroo file
 when "new"
-	#	Dir[ "#{DIR_MATCHES}*" ].each do |match|
-	#		#	match = "./Matches/3159661273"
-	#		puts "#{match}"
-	#		data = JSON.parse( File.read( match ) )
-
-	#		start_time = Time.now
-	#		# Check if the match is parsed, otherwise I will not process it
-	#		statseroo.update_stats( data ) unless !is_useful?( data )# !is_useful?( data )
-	#		end_time = Time.now
-	#		puts "Match #{match} studied in #{end_time-start_time}"
-	#	end
+	# Saving an empty Statseroo file
+	statseroo.save
 	
 # Updating the current Statseroo file via the website
 when "update"
@@ -323,6 +322,9 @@ when "update"
 
 	# Updating starting from the last match studied
 	update_from( statseroo.last_match_time, statseroo )
+
+	# Saving
+	statseroo.save
 	
 # Loading local matches file
 when "local"
@@ -337,6 +339,9 @@ when "local"
 		# Check if the match is parsed, otherwise I will not study it
 		statseroo.update_stats( data ) unless !is_useful?( data )
 	end
+
+	# Saving the local matches parsed
+	statseroo.save
 
 when "show"
 	# Loading the stats from the file
@@ -354,7 +359,7 @@ when "match"
 	if !File.exist?( match_file ) then
 		puts "Downloading data for #{match_file}..."
 		# Reading data from The Internet
-		data = open( "#{URL_MATCHES}#{match_number}" )
+		data = open( URL_MATCHES, match_number )
 		# Saving data locally
 		file_write = File.open( "#{DIR_MATCHES}#{match_number}", "w" )
 		file_write.write( data )
@@ -363,26 +368,13 @@ when "match"
 		data = File.read( match_file )
 	end
 	
+	# Parsing the data with JSON
 	data = JSON.parse( data )
-	#	data = JSON.parse( open( "#{URL}#{match_number}" ) )
 
 	# Updating data with the match provided
 	statseroo.update_stats( data ) unless !is_useful?( data )
 
-when "site"
-
-	#
-	#	Can't parse the web page because they still go through the api to get
-	#	the match information
-	#
-	#	match_number = ( ARGV[ 1 ].nil? ? 3198083879 : ARGV[ 1 ].to_i )
-	#	site = "#{URL_SITE}#{match_number}#{SCRIPT_BUILD}"
-	#	puts "#{site}"
-	#	content = Nokogiri::HTML( open( site ) )
-	#	puts "#{content}"
-	#	puts "#{content.css( "script" )[-1]}"
-	#	script = content.css( "script" )[-1][ "src" ]
-	#	puts "#{script}"
+	# Not saving in this case
 
 # Starting from a specific date
 else
@@ -391,8 +383,14 @@ else
 		start_time = Time.parse( ARGV[ 0 ] )
 		# Updating from the date parsed from the input
 		update_from( start_time.to_i, statseroo )
+
+		# Saving the new stats
+		statseroo.save
+
 	rescue ArgumentError
 		puts "Not a date dude."
+	rescue TypeError
+		puts "I'll do nothing then.."
 	end
 end
 
