@@ -15,7 +15,8 @@ require './Statseroo.rb'
 def open( url_base, url_spec )
 	# Getting info about the connection to open
 	uri_base = URI( url_base )
-	proxy = URI( ENV["https_proxy"] )
+	# Checking it the system has a proxy or not
+	proxy = URI( ( ENV["https_proxy"].nil? ? "" : ENV["https_proxy"] ) )
 	# Opening a connection considering a proxy
 	# Need to try this without a proxied connection
 	# I always use SSL since the website that I am querying uses it
