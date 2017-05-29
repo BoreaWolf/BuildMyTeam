@@ -13,20 +13,26 @@ require './Statseroo.rb'
 
 # Open a url stream
 def open( url_base, url_spec )
-	# Getting info about the connection to open
-	uri_base = URI( url_base )
-	# Checking it the system has a proxy or not
-	proxy = URI( ( ENV["https_proxy"].nil? ? "" : ENV["https_proxy"] ) )
-	# Opening a connection considering a proxy
-	# Need to try this without a proxied connection
-	# I always use SSL since the website that I am querying uses it
-	Net::HTTP.start( uri_base.host, uri_base.port,
-					 proxy.host, proxy.port,
-					 :use_ssl => true ){ |http|
-		# Getting the information of what is requested, combining the base url
-		# with the specific data required
-		http.get( "#{uri_base.path}#{url_spec}" ).body
-	}
+	begin
+		# Getting info about the connection to open
+		uri_base = URI( url_base )
+		# Checking it the system has a proxy or not
+		proxy = URI( ( ENV["https_proxy"].nil? ? "" : ENV["https_proxy"] ) )
+		# Opening a connection considering a proxy
+		# Need to try this without a proxied connection
+		# I always use SSL since the website that I am querying uses it
+		Net::HTTP.start( uri_base.host, uri_base.port,
+						 proxy.host, proxy.port,
+						 :use_ssl => true ) do |http|
+			# Getting the information of what is requested, combining the base url
+			# with the specific data required
+			http.get( "#{uri_base.path}#{url_spec}" ).body
+		end
+	rescue Net::ReadTimeout, Net::HTTPFatalError
+		puts "Network problem..Waiting before retrying to get information from #{url_base}#{url_spec}"
+		sleep( 60 )
+		retry
+	end
 end
 
 def is_useful?( match_data )
@@ -75,6 +81,10 @@ def num_digits( number )
 	return( Math.log10( number ).to_i + 1 )
 end
 
+def wait_time()
+	sleep( ( Random.new( Time.now.to_i ).rand( 1 ) + 0.5 ).round( 2 ) )
+end
+
 def update_from( date_time, stats )
 	# Printing some info to the user
 	puts "Updating Stats starting from #{to_human_time( date_time )}"
@@ -85,10 +95,18 @@ def update_from( date_time, stats )
 
 	matches_controlled = 0
 	matches_parsed = 0
+	json_problems = 0
 	#	last_delta_time = DELTA_TIME + 1
 	matches_to_parse.each.with_index do |match, i|
 		# Reading data from the website
-		data = JSON.parse( open( URL_MATCHES, match ) )
+		begin
+			data = JSON.parse( open( URL_MATCHES, match ) )
+		rescue JSON::ParserError
+			puts "Problem with JSON parser (#{json_problems}), retrying.."
+			json_problems += 1
+			wait_time()
+			retry
+		end
 
 		# Nice printing
 		printf( "%#{num_digits(matches_to_parse.length)}d/%d) ",
@@ -105,49 +123,13 @@ def update_from( date_time, stats )
 		# Saving every X matches parsed
 		stats.save if matches_controlled % SAVING_INTERVAL == 0
 
-		# Waiting 1 second, as required by the website
-		sleep( 1 )
+		# Waiting [1,2] second, as required by the website
+		wait_time()
 	end
 
-	#	begin
-	#		# Going through the matches increasing the ID by one on each step
-	#		match_id += 1
-	#		# Reading data from the website
-	#		data = JSON.parse( open( "#{URL_MATCHES}#{match_id}" ) )
-
-	#		# Nice printing
-	#		print "#{match_id}: #{match_status( data )}"
-	#		matches_controlled += 1
-
-	#		#	# Saving the statseroo every X games controlled
-	#		#	if matches_controlled % SAVING_INTERVAL == 0 then
-	#		#		statseroo.save
-	#		#	end
-
-	#		# Waiting 1 second, as required by the website
-	#		sleep( 1 )
-
-	#		# To avoid nil data (not existing match), I will keep track of the time
-	#		# of the last correct match parsed and if it is too close to the current
-	#		# time then I will stop the updating procedure
-	#		next if !is_match?( data ) and last_delta_time > DELTA_TIME
-	#		break if !is_match?( data )
-
-	#		# Parsing it if it is useful
-	#		statseroo.update_stats( data ) unless !is_useful?( data )
-	#		# Updating matches parsed counter and saving to file
-	#		if is_useful?( data ) then
-	#			matches_parsed += 1
-	#			statseroo.save
-	#		end
-
-	#		# Updating the delta time
-	#		last_delta_time = ( Time.now - Time.at( data[ "start_time" ] ) )
-
-	#	end while( last_delta_time > DELTA_TIME )
-
 	# Saving the updates done
-	puts "Updated stats with #{matches_parsed} matches over #{matches_controlled} controlled"
+	puts "Updated stats with #{matches_parsed} matches over #{matches_controlled} controlled."
+	puts "JSON failed #{json_problems} times."
 end
 
 # Functions to find details of data from files

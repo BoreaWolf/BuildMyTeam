@@ -48,7 +48,7 @@ class SelfStats
 
 	def to_readable
 		if @picked > 0 then
-			sprintf( ": %2d/%2d won matches (%6.2f%% win rate), %02d:%02d average time",
+			sprintf( ": %3d/%3d won matches (%6.2f%% win rate), %02d:%02d average time",
 						@wins,
 						@picked,
 						@wins.to_f/@picked*100,
