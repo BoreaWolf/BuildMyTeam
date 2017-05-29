@@ -5,9 +5,10 @@
 # Description: Class to keep the stats of games
 #
 
-require 'json'
+require "json"
 
-require './Constants.rb'
+require "./Constants.rb"
+require "./FindingFunctions.rb"
 
 IterativeMean = Struct.new( :value ) do
 	def set_value( new_value )
@@ -80,14 +81,22 @@ class SelfStats
 end
 
 class SharedStats 
-		attr_reader :picked_vs,
-					:win_vs,
-					:damage_done_avg,
-					:damage_received_avg,
-					:killed_avg,
-					:died_avg
+	attr_reader :picked_vs,
+				:win_vs,
+				:damage_done_avg,
+				:damage_received_avg,
+				:killed_avg,
+				:died_avg
 
-		attr_writer :damage_received_avg
+	attr_writer :damage_received_avg
+
+	# Parameters used in the rate computation
+	# Damage
+	@@alpha = 0.9
+	# KDA
+	@@beta = 0.7
+	# Win rate
+	@@gamma = 0.5
 	
 	def initialize
 		@picked_vs = 0
@@ -113,6 +122,24 @@ class SharedStats
 		end
 	end
 
+	# Rating how good a certain matchup could be based on the stats collected
+	#
+	def rate
+		rating = 0
+		rating += @@alpha * ( @damage_received_avg.value == 0 ? 
+							  @damage_done_avg.value.to_f : 
+							  @damage_done_avg.value.to_f / @damage_received_avg.value )
+		rating += @@beta * ( @died_avg.value == 0 ?
+							 @killed_avg.value.to_f :
+							 @killed_avg.value.to_f / @died_avg.value )
+
+		rating += @@gamma * ( @picked_vs == 0 ? 
+							  @wins_vs.to_f :
+							  @win_vs.to_f / @picked_vs )
+
+		return( is_empty? ? -1 : rating )
+	end
+
 	def update_kills( value )
 		update_avg( value, "k" )
 	end
@@ -129,8 +156,14 @@ class SharedStats
 		update_avg( value, "dr" )
 	end
 
+	# Checking if all attributes are equal to 0
 	def is_empty?
-		return( @picked_vs == 0 )
+		return(
+				self.instance_variables
+					.map{ |attr| instance_variable_get( attr ) }
+					.map{ |v| ( v.is_a?( Struct ) ? v.value : v ) }
+					.all?{ |v| v == 0 }
+			  )
 	end
 
 	def to_s
@@ -220,22 +253,6 @@ class Stats
 	def update_stats( match_data )
 		# I don't want to keep a copy of the match offline, so I just process it
 		# on the spot and then drop it
-		#	data = JSON.parse( open( "#{URL}#{match_number}" ) )
-		#	data = JSON.parse( File.read( "#{DIR_MATCHES}#{match_number}" ) )
-
-		#	printf( "%s %s %d - %d %s %s (%d)\n",
-		#				( match_data["radiant_win"] ? WIN : LOST ),
-		#				TEAM_RADIANT,
-		#				match_data["radiant_score"],
-		#				match_data["dire_score"],
-		#				( !match_data["radiant_win"] ? WIN : LOST ),
-		#				TEAM_DIRE,
-		#				match_data["match_id"] )
-
-		#	match_data["players"].each do |player|
-		#		print "#{find_hero_name( player["hero_id"] )}(#{player["isRadiant"]}) "
-		#	end
-		#	print "\n"
 
 		# Updating the given heroes data
 		match_data["players"].each do |player|
@@ -255,13 +272,16 @@ class Stats
 		end
 
 		@matches_studied += 1
+	end
 
-		#	update_damage_received( match_data )
-		#	# Adding the damage received information
-		#	extracted_data["damage_done"].each do |hero_id ,damage_done|
-		#		if player_data["hero_id"] == hero_id
-		#			result["damage_received"] << [
-		#	end
+	def best_against( hero_ids )
+		# Taking data related only the hero requested, calculating the rate and
+		# sorting by it
+		@data.collect{ |k, v| ( k[ 1 ] == hero_ids.first ? [ k, v ] : nil ) }
+			 .compact
+			 .map{ |k, v| [ find_hero_name( k[ 0 ] ), v.rate, v.picked_vs ] }
+			 .sort_by{ |k, v, z| v }
+			 .reverse
 	end
 
 	def print_stats
@@ -269,15 +289,6 @@ class Stats
 		puts "Matches studied: #{@matches_studied}"
 
 		@data.each do |key, value|
-			#	puts "#{find_hero_name( key )} (#{key}):\t#{value.picked} #{value.time_avg}"
-			#	printf( "%20s (%3d):\t%d %s\n",
-			#				find_hero_name( key ),
-			#				key,
-			#				value.picked,
-			#				value.time_avg )
-
-			#	puts "#{value}"
-
 			if !value.is_empty? then
 				key.each_with_index do |k, i|
 					print "#{(i > 0 ? "/" : "")}#{find_hero_name( k )}"
@@ -301,14 +312,7 @@ class Stats
 
 	def to_s
 		#	FUCK JSON OF A BITCH
-		#	JSON.generate( @data )
-		#	result = "{\"@matches_studied\":#{@matches_studied},\"@data\":{"
-		#	@data.each do |key, value|
-		#		result.concat( "\"#{key}\":#{value}," )
-		#	end
-		#	result.chomp!( "," )
-		#	result.concat( "}}" )
-		#	return( result )
+		#	I'll do it myself
 
 		result = "{"
 		self.instance_variables.each do |attr|
@@ -331,10 +335,6 @@ class Stats
 	def load( loaded_data )
 		#	puts "Stats::load Loading Stats data..."
 		data = JSON.parse( loaded_data )
-
-		#	data.each do |key, value|
-		#		@data[ get_key_from_string( key ) ].load( value )
-		#	end
 
 		data.each do |attr, value|
 			if attr == "@data" then
@@ -377,20 +377,6 @@ class Stats
 			end
 		end
 
-		#	result.each do |rk, rv|
-		#		puts "#{rk}: "
-		#		rv.each do |k,v|
-		#			puts "\t#{k} => #{v}"
-		#		end
-		#	end
-
-		#	new_result.each do |hero_id, stats|
-		#		puts "#{hero_id}:"
-		#		stats.each do |stat|
-		#			puts "\t#{stat}"
-		#		end
-		#	end
-
 		return( new_result )
 	end
 
@@ -407,50 +393,6 @@ class Stats
 	def get_team( match_data, is_radiant )
 		starting = 0 + ( is_radiant ? 0 : 5 )
 		return( match_data["players"].collect{ |player| player["hero_id"] }[ starting..starting + 4 ] )
-	end
-
-	# Functions to find details of data from files
-	def find_in_file_by_id( id, file )
-		filecontent = JSON.parse( File.read( "#{DIR_DOTA_DATA}#{file}.json" ) )
-		filecontent[ file ].each do |item|
-			if item[ "id" ] == id then
-				if file == "heroes" then
-					return item[ "localized_name" ]
-				else
-					return item[ "name" ]
-				end
-			end
-		end
-	end
-	
-	def find_hero_name( id )
-		find_in_file_by_id( id, "heroes" )
-	end
-	
-	def find_lobby( id )
-		find_in_file_by_id( id, "lobbies" )
-	end
-	
-	def find_mode( id )
-		find_in_file_by_id( id, "mods" )
-	end
-	
-	def find_region( id )
-		find_in_file_by_id( id, "regions" )
-	end
-	
-	def find_item( id )
-		find_in_file_by_id( id, "items" )
-	end
-
-	# In the match file they describe heroes with 'npc_dota_hero_name'
-	def find_hero_id_by_description( description )
-		filecontent = JSON.parse( File.read( FILE_HEROES ) )
-		filecontent[ "heroes" ].each do |hero|
-			if description.include?( hero[ "name" ] ) then
-				return hero[ "id" ]
-			end
-		end
 	end
 
 end
@@ -496,6 +438,16 @@ class Statseroo
 		# Saving the ID of this match as last match studied
 		@last_match_studied = match_data[ "match_id" ]
 		@last_match_time = match_data[ "start_time" ]
+	end
+
+	# Receiving an array of hero id I will try to find which hero is more
+	# suitable against them for each mmr skill level
+	def best_against( hero_ids )
+		result = Hash.new
+		@data.each do |k, v|
+			result[ k ] = v.best_against( hero_ids )
+		end
+		return result
 	end
 
 	def print_statseroo
