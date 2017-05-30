@@ -39,3 +39,5 @@ DELTA_TIME = 10 * 60
 # Every X matches parsed I will save the stats
 SAVING_INTERVAL = 50
 
+# Penalty applied for unknown matchups
+MATCHUPS_PENALTY = -10

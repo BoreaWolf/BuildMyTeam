@@ -145,7 +145,7 @@ class SharedStats
 							  @wins_vs.to_f :
 							  @win_vs.to_f / @picked_vs )
 
-		return( is_empty? ? -1 : rating )
+		return( is_empty? ? MATCHUPS_PENALTY : rating )
 	end
 
 	def update_kills( value )
@@ -285,12 +285,22 @@ class Stats
 	def best_against( hero_ids )
 		# Taking data related only the hero requested, calculating the rate and
 		# sorting by it
+		# Collect: taking the info about the hero requested
+		# Compact: removing non hero data, saved as nil
+		# Map: Creating the data needed. Picked_vs is set to a minimum of 1 in
+		#	order to penalize unknown matchups
 		result = Array.new
 		hero_ids.each do |hero|
 			result.push(
 				@data.collect{ |k, v| ( k[ 1 ] == hero ? [ k, v ] : nil ) }
 					 .compact
-				 	 .map{ |k, v| [ find_hero_name( k[ 0 ] ), v.rate, v.picked_vs, hero ] }
+				 	 .map{ |k, v| 
+						 [ 
+							 find_hero_name( k[ 0 ] ),
+							 v.rate,
+							 ( v.picked_vs == 0 ? 1 : v.picked_vs ),
+							 hero 
+						 ] }
 			)
 		end
 
@@ -301,7 +311,11 @@ class Stats
 					   .map{ |hero, info| 
 							[ 
 								hero,
-								info.inject(0){ |res, i| res + i[ 1 ] * i[ 2 ] },
+								(
+									info.inject( 0 ){ |res, i| res + i[ 2 ] } == 0 ?
+									MATCHUPS_PENALTY :
+									info.inject(0){ |res, i| res + i[ 1 ] * i[ 2 ] } / info.inject( 0 ){ |res, i| res + i[ 2 ] }
+								),
 								info.collect{ |h, r, p, i| 
 									[ find_hero_name( i ), r, p ] }
 							]
