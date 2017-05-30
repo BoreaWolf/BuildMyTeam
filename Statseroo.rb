@@ -47,12 +47,20 @@ class SelfStats
 		return( @picked == 0 )
 	end
 
+	def win_rate
+		if @picked == 0 then
+			-1
+		else
+			@wins.to_f / @picked * 100
+		end
+	end
+
 	def to_readable
 		if @picked > 0 then
 			sprintf( ": %3d/%3d won matches (%6.2f%% win rate), %02d:%02d average time",
 						@wins,
 						@picked,
-						@wins.to_f/@picked*100,
+						win_rate,
 						@time_avg.value/60,
 						@time_avg.value%60 )
 		end
@@ -277,10 +285,45 @@ class Stats
 	def best_against( hero_ids )
 		# Taking data related only the hero requested, calculating the rate and
 		# sorting by it
-		@data.collect{ |k, v| ( k[ 1 ] == hero_ids.first ? [ k, v ] : nil ) }
-			 .compact
-			 .map{ |k, v| [ find_hero_name( k[ 0 ] ), v.rate, v.picked_vs ] }
-			 .sort_by{ |k, v, z| v }
+		result = Array.new
+		hero_ids.each do |hero|
+			result.push(
+				@data.collect{ |k, v| ( k[ 1 ] == hero ? [ k, v ] : nil ) }
+					 .compact
+				 	 .map{ |k, v| [ find_hero_name( k[ 0 ] ), v.rate, v.picked_vs, hero ] }
+			)
+		end
+
+		# I have to combine the results to a single list of best picks
+		# Some parameters might be needed, something to consider
+		result = result.flatten( 1 )
+					   .group_by{ |hero, rate, picks, initial| hero }
+					   .map{ |hero, info| 
+							[ 
+								hero,
+								info.inject(0){ |res, i| res + i[ 1 ] * i[ 2 ] },
+								info.collect{ |h, r, p, i| 
+									[ find_hero_name( i ), r, p ] }
+							]
+					   }
+					   .sort_by{ |h, r, p| r }
+					   .reverse
+
+		return( result )
+	end
+
+	def win_rate
+		# Looking only to the SelfStats
+		@data.select{ |k, v| k.length == 1 }
+			 .map{ |k, v| [ find_hero_name( k.first ), v.win_rate, v.picked ] }
+			 .sort_by{ |name, wr, p| wr }
+			 .reverse
+	end
+
+	def pick_rate
+		@data.select{ |k, v| k.length == 1 }
+			 .map{ |k, v| [ find_hero_name( k.first ), v.picked.to_f / @matches_studied * 100 ] }
+			 .sort_by{ |name, pr| pr }
 			 .reverse
 	end
 
@@ -446,6 +489,22 @@ class Statseroo
 		result = Hash.new
 		@data.each do |k, v|
 			result[ k ] = v.best_against( hero_ids )
+		end
+		return result
+	end
+
+	def win_rate
+		result = Hash.new
+		@data.each do |k, v|
+			result[ k ] = v.win_rate
+		end
+		return result
+	end
+
+	def pick_rate
+		result = Hash.new
+		@data.each do |k, v|
+			result[ k ] = [ v.matches_studied, v.pick_rate ]
 		end
 		return result
 	end
