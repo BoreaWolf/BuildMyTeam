@@ -20,7 +20,7 @@ when "WinRate"
 	ans.each do |k, v|
 		puts "MMR: #{k}"
 		v.each do |name, rate, picked|
-			puts "\t#{name} @ #{rate.round(3)}% over #{picked} matches"
+			puts "\t#{name} @ #{rate.round( 3 )}% over #{picked} matches"
 		end
 	end
 
@@ -29,7 +29,7 @@ when "PickRate"
 	ans.each do |k, v|
 		puts "MMR: #{k} [#{v[0]} matches played]"
 		v[1].each do |name, rate|
-			puts "\t#{name} @ #{rate.round(3)}%"
+			puts "\t#{name} @ #{rate.round( 3 )}%"
 		end
 	end
 
@@ -70,7 +70,10 @@ else
 	ans.each do |k, v|
 		puts "MMR: #{k}"
 		v[0..9].each do |name, rate, matchups|
-			puts "\t#{name} @ #{rate.round(3)} against #{matchups} matchups"
+			puts "\t#{name} @ #{rate.round( 3 )}:"
+			matchups.sort_by{ |hero, single_rate, picks| single_rate }.reverse.each do |h, r, p|
+				puts "\t\t#{h} @ #{r.round( 3 )} on #{p} matchup"
+			end
 		end
 	end
 end
