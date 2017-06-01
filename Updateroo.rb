@@ -30,8 +30,8 @@ def open( url_base, url_spec )
 			# with the specific data required
 			http.get( "#{uri_base.path}#{url_spec}" ).body
 		end
-	rescue Net::ReadTimeout, Net::HTTPFatalError, Errno::ECONNREFUSED 
-		puts "Network problem..Waiting before retrying to get information from #{url_base}#{url_spec}"
+	rescue Net::ReadTimeout, Net::HTTPFatalError, Errno::ECONNREFUSED => error
+		puts "Network problem #{error.class}..Waiting before retrying to get information from #{url_base}#{url_spec}"
 		sleep( 60 )
 		retry
 	end

@@ -102,9 +102,9 @@ class SharedStats
 	# Damage
 	@@alpha = 0.9
 	# KDA
-	@@beta = 0.7
+	@@beta = 0.5
 	# Win rate
-	@@gamma = 0.5
+	@@gamma = 0.7
 	
 	def initialize
 		@picked_vs = 0
