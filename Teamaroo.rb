@@ -16,19 +16,29 @@ statseroo.load
 case ARGV[ 0 ]
 when "WinRate"
 	ans = statseroo.win_rate
+	# Deciding how many results to show
+	number = ans.first[ 1 ].length
+	if !ARGV[ 1 ].nil? and ARGV[ 1 ].to_i.between?( 1, number ) then
+		number = ARGV[ 1 ].to_i 
+	end
 	#	puts "#{ans}"
 	ans.each do |k, v|
 		puts "MMR: #{k}"
-		v.each do |name, rate, picked|
+		v[0...number].each do |name, rate, picked|
 			puts "\t#{name} @ #{rate.round( 3 )}% over #{picked} matches"
 		end
 	end
 
 when "PickRate"
 	ans = statseroo.pick_rate
+	# Deciding how many results to show
+	number = ans.first[ 1 ][ 1 ].length
+	if !ARGV[ 1 ].nil? and ARGV[ 1 ].to_i.between?( 1, number ) then
+		number = ARGV[ 1 ].to_i 
+	end
 	ans.each do |k, v|
 		puts "MMR: #{k} [#{v[0]} matches played]"
-		v[1].each do |name, rate|
+		v[1][0...number].each do |name, rate|
 			puts "\t#{name} @ #{rate.round( 3 )}%"
 		end
 	end
