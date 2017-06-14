@@ -261,25 +261,37 @@ class Stats
 	def update_stats( match_data )
 		# I don't want to keep a copy of the match offline, so I just process it
 		# on the spot and then drop it
-
+		
 		# Updating the given heroes data
 		match_data["players"].each do |player|
-			# Updating the SelfStats
-			@data[ [ player["hero_id"] ] ].update( match_data["duration"], player["win"] )
-
 			# Updating the SharedStats
 			enemies = get_team( match_data, !player["isRadiant"] )
 
 			# Getting the data of this player
 			extracted_data = extract_data( player, enemies )
+			
+			# Problems with the match, no data could have been extracted due to
+			# some problems on their side 3233340300
+			if extracted_data.nil? then
+				return false
+			end
 
 			# Updating the Stats struct
 			extracted_data.each do |hero_id, stats|
 				@data[ [ player["hero_id"], hero_id ] ].update( stats, player["win"] )
 			end
+
+			# Shifted the SelfStats update part after dued to problems with the
+			# parser. In this way I will update my stats only if I can get all
+			# the information I want
+
+			# Updating the SelfStats
+			@data[ [ player["hero_id"] ] ].update( match_data["duration"], player["win"] )
 		end
 
 		@matches_studied += 1
+
+		return( true )
 	end
 
 	def best_against( hero_ids )
@@ -412,29 +424,35 @@ class Stats
 
 	# Extracting relevant data from the player given
 	def extract_data( player_data, enemies )
-		# Creating the results studying the data received
-		result = Hash.new
-		result["kills"] = extract_hero_data( player_data, "killed" )
-		result["deaths"] = extract_hero_data( player_data, "killed_by" )
-		result["damage_done"] = extract_hero_data( player_data, "damage" )
+		# Checking for any problems related with the parser
+		# As happened in match 3233340300
+		if !player_data["killed"].nil? then
+			# Creating the results studying the data received
+			result = Hash.new
+			result["kills"] = extract_hero_data( player_data, "killed" )
+			result["deaths"] = extract_hero_data( player_data, "killed_by" )
+			result["damage_done"] = extract_hero_data( player_data, "damage" )
 
-		# I have to remove self and teammated related damage
-		# Delete elements that are not part of the enemies
-		result.each do |field, values|
-			values.delete_if{ |hero_id, value| !enemies.include?( hero_id ) }
-		end
-
-		# Reorganizing the structure such that it is indexed by the hero and not
-		# by the type of data
-		new_result = Hash.new
-		result.each do |field, values|
-			values.each do |hero_id, value|
-				new_result[ hero_id ] = Hash.new if new_result[ hero_id ].nil?
-				new_result[ hero_id ][ field ] = value
+			# I have to remove self and teammated related damage
+			# Delete elements that are not part of the enemies
+			result.each do |field, values|
+				values.delete_if{ |hero_id, value| !enemies.include?( hero_id ) }
 			end
-		end
 
-		return( new_result )
+			# Reorganizing the structure such that it is indexed by the hero and not
+			# by the type of data
+			new_result = Hash.new
+			result.each do |field, values|
+				values.each do |hero_id, value|
+					new_result[ hero_id ] = Hash.new if new_result[ hero_id ].nil?
+					new_result[ hero_id ][ field ] = value
+				end
+			end
+
+			return( new_result )
+		else
+			return( nil )
+		end
 	end
 
 	# Collecting data of enemies
@@ -472,7 +490,7 @@ class Statseroo
 	end
 
 	def update_stats( match_data )
-		case get_avg_mmr( match_data )
+		result = case get_avg_mmr( match_data )
 		when 0..2999
 			print "Updating 0..2999"
 			@data[ 0 ].update_stats( match_data )
@@ -490,11 +508,18 @@ class Statseroo
 			@data[ 6000 ].update_stats( match_data )
 		end
 
-		print " (#{get_avg_mmr( match_data )})\n"
+		print " (#{get_avg_mmr( match_data )})"
 
-		# Saving the ID of this match as last match studied
-		@last_match_studied = match_data[ "match_id" ]
-		@last_match_time = match_data[ "start_time" ]
+		# Checking if any errors occured during the stats update
+		# Errors related to the parser itself
+		if result then
+			# Saving the ID of this match as last match studied
+			@last_match_studied = match_data[ "match_id" ]
+			@last_match_time = match_data[ "start_time" ]
+		else
+			print " <== Problem with parsed match #{match_data["match_id"]}"
+		end
+		puts "\n"
 	end
 
 	# Receiving an array of hero id I will try to find which hero is more
