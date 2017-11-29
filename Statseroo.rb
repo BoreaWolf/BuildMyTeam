@@ -238,7 +238,10 @@ class Stats
 		# Get heroes id and initialize the structure
 		heroes_id = Array.new
 		heroes_file = JSON.parse( File.read( FILE_HEROES ) )
-		heroes_id = heroes_file[ "heroes" ].collect{ |x| x["id"] }
+		#	Old json file
+		#	heroes_id = heroes_file[ "heroes" ].collect{ |x| x["id"] }
+		# New json file is structured as a Hash, so the ids are the keys of it
+		heroes_id = heroes_file.keys.map!{ |x| x.to_i }
 		# SelfStats
 		heroes_id.each do |hero|
 			@data[ [ hero ] ] = SelfStats.new

@@ -328,6 +328,8 @@ when "match"
 	# Updating data with the match provided
 	statseroo.update_stats( data ) unless !is_useful?( data )
 
+	statseroo.print_statseroo
+
 	# Not saving in this case
 
 # Starting from a specific date

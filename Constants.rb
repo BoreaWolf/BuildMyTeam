@@ -6,7 +6,7 @@
 #
 
 # Directories
-DIR_DOTA_DATA = "./DotaData/"
+DIR_DOTA_DATA = "./DotaData/7.07/"
 DIR_MATCHES = "./Matches/"
 
 # Files
