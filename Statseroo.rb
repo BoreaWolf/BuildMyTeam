@@ -352,6 +352,9 @@ class Stats
 	end
 
 	def pick_rate
+		# Checking to have at least one match in this bracket
+		return nil if @matches_studied == 0
+
 		@data.select{ |k, v| k.length == 1 }
 			 .map{ |k, v| [ find_hero_name( k.first ), v.picked.to_f / @matches_studied * 100 ] }
 			 .sort_by{ |name, pr| pr }

@@ -32,14 +32,25 @@ when "WinRate"
 when "PickRate"
 	ans = statseroo.pick_rate
 	# Deciding how many results to show
-	number = ans.first[ 1 ][ 1 ].length
+	number = -1
+	index = 0
+	while number == -1 do
+		number = ans[ ans.keys[ index ] ][ 1 ].length unless ans[ ans.keys[ index ] ][ 1 ].nil?
+		index += 1
+	end
+
 	if !ARGV[ 1 ].nil? and ARGV[ 1 ].to_i.between?( 1, number ) then
 		number = ARGV[ 1 ].to_i 
 	end
+
 	ans.each do |k, v|
-		puts "MMR: #{k} [#{v[0]} matches played]"
-		v[1][0...number].each do |name, rate|
-			puts "\t#{name} @ #{rate.round( 3 )}%"
+		if v[ 1 ].nil? then
+			puts "No matches played for #{k} yet."
+		else
+			puts "MMR: #{k} [#{v[0]} matches played]"
+			v[1][0...number].each do |name, rate|
+				puts "\t#{name} @ #{rate.round( 3 )}%"
+			end
 		end
 	end
 
