@@ -330,6 +330,8 @@ when "match"
 
 	statseroo.print_statseroo
 
+	statseroo.save
+
 	# Not saving in this case
 
 # Starting from a specific date

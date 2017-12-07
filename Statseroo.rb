@@ -586,7 +586,7 @@ class Statseroo
 		file_data.each do |key, value|
 			if key == "@data" then
 				value.each do |mmr, stat|
-					@data[ mmr.to_i ].load( stat )
+					@data[ mmr ].load( stat )
 				end
 			else
 				instance_variable_set( key.to_sym, value )
