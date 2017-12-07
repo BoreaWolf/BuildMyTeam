@@ -41,3 +41,8 @@ SAVING_INTERVAL = 50
 
 # Penalty applied for unknown matchups
 MATCHUPS_PENALTY = -10
+
+# Ranges for new medals
+MEDALS = [ "Unranked", "Herald", "Guardian", "Crusader", "Archon", "Legend", "Ancient", "Divine" ]
+MEDALS_RANGES = [ 0..0, (10..15), (20..25), (30..35), (40..45), (50..55), (60..65), (70..79) ]
+

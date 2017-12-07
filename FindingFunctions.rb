@@ -15,16 +15,6 @@ def find_in_file_by_id( id, file )
 	else
 		return filecontent[ id.to_s ][ "name" ]
 	end
-	#	Old json file
-	#	filecontent[ file ].each do |item|
-	#		if item[ "id" ] == id then
-	#			if file == "heroes" then
-	#				return item[ "localized_name" ]
-	#			else
-	#				return item[ "name" ]
-	#			end
-	#		end
-	#	end
 end
 
 def find_hero_name( id )
@@ -52,27 +42,19 @@ def find_hero_id_by_description( description )
 	filecontent = JSON.parse( File.read( FILE_HEROES ) )
 	filecontent.keys.each do |hero_id|
 		if description.include?( filecontent[ hero_id ][ "name" ] ) then
-			return hero_id
+			return hero_id.to_i
 		end
 	end
 	return ""
-
-	#	filecontent[ "heroes" ].each do |hero|
-	#		if description.include?( hero[ "name" ] ) then
-	#			return hero[ "id" ]
-	#		end
-	#	end
-	#	return ""
 end
 
-# TODO: Has to be updated since the json file has changed.
-# Look at previous function
+# Finding the hero id given part or the full in game name
 def find_hero_id_by_localized_name( name )
 	result = Array.new
 	filecontent = JSON.parse( File.read( FILE_HEROES ) )
-	filecontent[ "heroes" ].each do |hero|
-		if hero["localized_name"].downcase.include?( name.downcase ) then
-			result.push( hero[ "id" ] )
+	filecontent.keys.each do |hero_id|
+		if filecontent[hero_id]["localized_name"].downcase.include?( name.downcase ) then
+			result.push( hero_id.to_i )
 		end
 	end
 	return result

@@ -241,6 +241,7 @@ class Stats
 		#	Old json file
 		#	heroes_id = heroes_file[ "heroes" ].collect{ |x| x["id"] }
 		# New json file is structured as a Hash, so the ids are the keys of it
+		# Transforming the ids from string to integers 
 		heroes_id = heroes_file.keys.map!{ |x| x.to_i }
 		# SelfStats
 		heroes_id.each do |hero|
@@ -272,12 +273,13 @@ class Stats
 
 			# Getting the data of this player
 			extracted_data = extract_data( player, enemies )
-			
+
 			# Problems with the match, no data could have been extracted due to
 			# some problems on their side 3233340300
 			if extracted_data.nil? then
 				return false
 			end
+			
 
 			# Updating the Stats struct
 			extracted_data.each do |hero_id, stats|
@@ -482,36 +484,30 @@ class Statseroo
 	def initialize
 		# Creating the classes of Stats that I want to study
 		@data = Hash.new
-		@data[ 0 ] = Stats.new
-		@data[ 3000 ] = Stats.new
-		@data[ 4000 ] = Stats.new
-		@data[ 5000 ] = Stats.new
-		@data[ 6000 ] = Stats.new
+		MEDALS.each do |medal|
+			@data[ medal ] = Stats.new
+		end
 		# Keeping information of the last match studied
 		@last_match_studied = 0
 		@last_match_time = 0
 	end
 
 	def update_stats( match_data )
-		result = case get_avg_mmr( match_data )
-		when 0..2999
-			print "Updating 0..2999"
-			@data[ 0 ].update_stats( match_data )
-		when 3000..3999
-			print "Updating 3000..3999"
-			@data[ 3000 ].update_stats( match_data )
-		when 4000..4999
-			print "Updating 4000..4999"
-			@data[ 4000 ].update_stats( match_data )
-		when 5000..5999
-			print "Updating 5000..5999"
-			@data[ 5000 ].update_stats( match_data )
-		else
-			print "Updating 6000..more"
-			@data[ 6000 ].update_stats( match_data )
-		end
+		avg_rank = 5 * ( get_avg_mmr( match_data ) / 5.0 ).round( 0 )
+		# The index of the model is given by the second digit of the medal
+		# average
+		medal_index = ( avg_rank / 10 ).round( 0 )
+		# Other way to obtain the medal index
+		#	MEDALS_RANGES.each.with_index do |range, i|
+		#		if range.cover?( avg_rank ) then
+		#			medal_index = i
+		#		end
+		#	end
+		
+		print "Updating #{MEDALS[ medal_index ]} #{avg_rank%10} "
+		result = @data[ MEDALS[ medal_index ] ].update_stats( match_data )
 
-		print " (#{get_avg_mmr( match_data )})"
+		print "(#{get_avg_mmr( match_data )})"
 
 		# Checking if any errors occured during the stats update
 		# Errors related to the parser itself
@@ -601,14 +597,16 @@ class Statseroo
 	private
 	# Calculate the average mmr of the game
 	def get_avg_mmr( data )
-		players_mmr = data["players"].collect{ |player| player["solo_competitive_rank"] }.compact.map{ |mmr| mmr.to_i }
+		# Getting the rank of each player
+		players_rank = data["players"].collect{ |player| player["rank_tier"] }.compact
 
-		# Checking to have at least one mmr rank of the players
-		if players_mmr.empty? then
+		# Returning the average or 0 if none of the players have one
+		if players_rank.empty? then
 			return( 0 )
 		else
-			return( players_mmr.inject( 0, :+ ) / players_mmr.length )
+			return( players_rank.compact.inject( 0.0, :+ ) / players_rank.compact.length ).round( 0 )
 		end
+
 	end
 
 	# Counting the number of matches studied through all Stats
